@@ -11,7 +11,7 @@
 #pragma comment(lib, "ws2_32.lib")  // Link against Winsock library
 
 #define PORT 9000
-#define BUFFER_SIZE 10000
+#define BUFFER_SIZE 1024
 #define DURATION 30
 #define INTERVAL 2
 
