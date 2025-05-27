@@ -6,9 +6,9 @@
 #include <arpa/inet.h>
 #include <time.h>
 
-#define BUFFER_SIZE 10000    // 10 KB buffer size for receiving
-#define DURATION 30          // Total duration in seconds
-#define INTERVAL 2           // Interval for throughput report
+#define BUFFER_SIZE 10000    // 10 KB
+#define DURATION 30          // Total test duration
+#define INTERVAL 2           // Report interval
 
 int main(int argc, char *argv[]) {
     if (argc != 3) {
@@ -22,14 +22,17 @@ int main(int argc, char *argv[]) {
     int sockfd;
     struct sockaddr_in server_addr;
     char *buffer = malloc(BUFFER_SIZE);
+    if (!buffer) {
+        perror("malloc failed");
+        exit(EXIT_FAILURE);
+    }
+    memset(buffer, 'A', BUFFER_SIZE);  // Dummy data
 
-    // Create socket
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket failed");
         exit(EXIT_FAILURE);
     }
 
-    // Setup server address
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(port);
@@ -40,7 +43,6 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // Connect to server
     if (connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
         perror("connect failed");
         close(sockfd);
@@ -53,29 +55,29 @@ int main(int argc, char *argv[]) {
     time_t next_report = start_time + INTERVAL;
     time_t end_time = start_time + DURATION;
 
-    size_t total_bytes_received = 0;
-    size_t interval_bytes_received = 0;
+    size_t total_bytes_sent = 0;
+    size_t interval_bytes_sent = 0;
 
     while (time(NULL) < end_time) {
-        ssize_t bytes = recv(sockfd, buffer, BUFFER_SIZE, 0);
-        if (bytes <= 0) {
-            perror("recv failed or connection closed");
+        ssize_t sent = send(sockfd, buffer, BUFFER_SIZE, 0);
+        if (sent <= 0) {
+            perror("send failed");
             break;
         }
 
-        total_bytes_received += bytes;
-        interval_bytes_received += bytes;
+        total_bytes_sent += sent;
+        interval_bytes_sent += sent;
 
         if (time(NULL) >= next_report) {
-            double mbps = (interval_bytes_received * 8.0) / (INTERVAL * 1000000.0);
-            printf("[INTERVAL] Received %.2f Mbps\n", mbps);
-            interval_bytes_received = 0;
+            double mbps = (interval_bytes_sent * 8.0) / (INTERVAL * 1000000.0);
+            printf("[INTERVAL] Sent %.2f Mbps\n", mbps);
+            interval_bytes_sent = 0;
             next_report += INTERVAL;
         }
     }
 
-    double total_mbps = (total_bytes_received * 8.0) / (DURATION * 1000000.0);
-    printf("[TOTAL] Received %.2f Mbps in %d seconds\n", total_mbps, DURATION);
+    double total_mbps = (total_bytes_sent * 8.0) / (DURATION * 1000000.0);
+    printf("[TOTAL] Sent %.2f Mbps in %d seconds\n", total_mbps, DURATION);
 
     close(sockfd);
     free(buffer);
